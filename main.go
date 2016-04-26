@@ -44,13 +44,18 @@ func main() {
 		fmt.Printf("%#v\n", err)
 		os.Exit(3)
 	}
+	fmt.Printf("Response:\n %#v\n", results)
+	if results.TotalRequests == 0 {
+		fmt.Println("Test was not started!")
+		os.Exit(3)
+	}
 	for key, val := range results.Responses {
 		if key != strconv.Itoa(http.StatusOK) {
 			fmt.Println("Non OK status code found", key)
-			os.Exit(3)
+			os.Exit(4)
 		} else if val == 0 {
 			fmt.Println("Status OK responses are zero!")
-			os.Exit(4)
+			os.Exit(5)
 		}
 	}
 	fmt.Println("No downtime for this app!")
