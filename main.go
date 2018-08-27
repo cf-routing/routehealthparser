@@ -5,9 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
-	"os"
-	"strconv"
 )
 
 type Results struct {
@@ -15,48 +14,48 @@ type Results struct {
 	Responses     map[string]int
 }
 
-var address = flag.String(
-	"address",
-	"",
-	"URL of Doctor route App",
-)
+var address = flag.String("address", "", "URL of Doctor route App")
 
 func main() {
 	flag.Parse()
+
 	if *address == "" {
-		fmt.Println("Address not provided")
-		os.Exit(1)
+		log.Fatal("address not provided")
 	}
+
 	resp, err := http.Get(*address)
 	if err != nil {
-		fmt.Printf("%#v\n", err)
-		os.Exit(2)
+		log.Fatalf("GET request failed: %s", err)
 	}
+
 	payload, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("%#v\n", err)
-		os.Exit(2)
+		log.Fatalf("read-all failed: %s", err)
 	}
-	results := Results{}
-	results.Responses = make(map[string]int)
+
+	var results Results
 	err = json.Unmarshal(payload, &results)
 	if err != nil {
-		fmt.Printf("%#v\n", err)
-		os.Exit(3)
+		log.Fatalf("unmarshal response body failed: %s", err)
 	}
-	fmt.Printf("Response:\n %#v\n", results)
+
+	fmt.Printf("Response:\n %s\n", string(payload))
+
 	if results.TotalRequests == 0 {
-		fmt.Println("Test was not started!")
-		os.Exit(3)
+		log.Fatal("test was not started - total requests were 0")
 	}
-	for key, val := range results.Responses {
-		if key != strconv.Itoa(http.StatusOK) {
-			fmt.Println("Non OK status code found", key)
-			os.Exit(4)
-		} else if val == 0 {
-			fmt.Println("Status OK responses are zero!")
-			os.Exit(5)
-		}
+
+	var rate float32
+	if v, ok := results.Responses["200"]; ok {
+		rate = float32(v) / float32(results.TotalRequests)
 	}
-	fmt.Println("No downtime for this app!")
+
+	switch {
+	case rate < 0.99:
+		log.Fatalf("Success rate (%f) was < 99%%, please check results", rate)
+	case rate == 1.0:
+		fmt.Println("No downtime for this app!")
+	default:
+		fmt.Printf("Success rate (%f) was > 99%%, no error", rate)
+	}
 }
